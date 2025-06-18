@@ -41,30 +41,61 @@ def setup_logging(log_file, level=logging.INFO):
     
     return logger
 
-def sanitize_cookies(cookies):
-    """清理 cookie 以使其与 Playwright/Camoufox 兼容。"""
-    sanitized = []
+def convert_cookie_editor_to_playwright(cookies_from_editor, logger=None):
+    """
+    将从 Cookie-Editor 插件导出的 cookie 列表转换为 Playwright 兼容的格式。
+
+    :param cookies_from_editor: 从 Cookie-Editor 导出的 JSON 加载的 cookie 列表。
+    :return: 一个与 Playwright 的 context.add_cookies() 兼容的 cookie 列表。
+    """
+    playwright_cookies = []
+    # Playwright 接受的有效 cookie 键
     allowed_keys = {'name', 'value', 'domain', 'path', 'expires', 'httpOnly', 'secure', 'sameSite'}
-    for cookie in cookies:
-        new_cookie = {}
-        for key, value in cookie.items():
-            if key == 'expirationDate':
-                new_cookie['expires'] = value
-                continue
-            if key == 'sameSite':
-                # 'No_Restriction' 在某些上下文中等同于 'None'
-                if value is None or str(value).lower() == 'no_restriction':
-                    new_cookie['sameSite'] = 'None'
-                elif str(value).lower() in ['lax', 'strict', 'none']:
-                    new_cookie['sameSite'] = str(value).capitalize()
-                else:
-                    # 对于 Camoufox 不支持的值，默认设为 'None' 或根据需要处理
-                    new_cookie['sameSite'] = 'None' 
-                continue
-            new_cookie[key] = value
-        final_cookie = {k: v for k, v in new_cookie.items() if k in allowed_keys}
-        sanitized.append(final_cookie)
-    return sanitized
+
+    for cookie in cookies_from_editor:
+        # 创建一个新的 cookie 字典，只包含我们需要的键
+        pw_cookie = {}
+
+        # 1. 直接复制通用字段
+        for key in ['name', 'value', 'domain', 'path', 'httpOnly', 'secure']:
+            if key in cookie:
+                pw_cookie[key] = cookie[key]
+
+        # 2. 转换 expirationDate -> expires
+        # 如果是会话 cookie (session: true)，Playwright 需要 expires: -1
+        if cookie.get('session', False):
+            pw_cookie['expires'] = -1
+        # 否则，使用 expirationDate 并转换为整数
+        elif 'expirationDate' in cookie:
+            # 确保 expirationDate 不是 None
+            if cookie['expirationDate'] is not None:
+                pw_cookie['expires'] = int(cookie['expirationDate'])
+            else:
+                 # 如果 expirationDate 为 null，也视为会话 cookie
+                pw_cookie['expires'] = -1
+        
+        # 3. 转换 sameSite
+        if 'sameSite' in cookie:
+            same_site_value = str(cookie['sameSite']).lower()
+            if same_site_value == 'no_restriction':
+                pw_cookie['sameSite'] = 'None'
+            elif same_site_value == 'lax':
+                pw_cookie['sameSite'] = 'Lax'
+            elif same_site_value == 'strict':
+                pw_cookie['sameSite'] = 'Strict'
+            # Playwright sameSite 的默认行为类似于 'Lax'，如果遇到无法识别的值，可以忽略或设为 'Lax'
+            # 如果 'sameSite' 的值为 'unspecified'，通常也映射到 'Lax'
+            elif same_site_value == 'unspecified':
+                pw_cookie['sameSite'] = 'Lax'
+
+        # 4. 确保所有必需的字段都存在 (Playwright 对 name, value, domain, path 有要求)
+        # 这一步是可选的，但可以增加健壮性
+        if all(key in pw_cookie for key in ['name', 'value', 'domain', 'path']):
+            playwright_cookies.append(pw_cookie)
+        else:
+            logger.warning(f"跳过一个格式不完整的 cookie: {cookie}")
+            
+    return playwright_cookies
 
 def run_browser_instance(config):
     """
@@ -95,7 +126,7 @@ def run_browser_instance(config):
         logger.exception(f"读取或解析 {cookie_file} 时出错: {e}") # 使用 logger.exception 代替 print，它会打印 traceback
         return
 
-    cookies = sanitize_cookies(cookies_from_file)
+    cookies = convert_cookie_editor_to_playwright(cookies_from_file, logger=logger)
     logger.debug(f"已加载并清理的 Cookies: {cookies}") # 可以使用 logger.debug 打印详细信息，但默认级别不会显示
 
     # 将 headless 字符串/布尔值转换为 Camoufox 需要的类型
