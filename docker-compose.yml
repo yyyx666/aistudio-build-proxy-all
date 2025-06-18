@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  camoufox:
+    build: .
+    ports:
+      - "5345:5345"
+    volumes:
+      - ./camoufox-py/config.yaml:/app/config.yaml
+      - ./camoufox-py/cookies:/app/cookies
+      - ./camoufox-py/logs:/app/logs
+    restart: always
