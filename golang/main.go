@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -491,22 +492,28 @@ func validateJWT(token string) (string, error) {
 
 // authenticateHTTPRequest 模拟HTTP代理请求的认证
 func authenticateHTTPRequest(r *http.Request) (string, error) {
-	// 1. 优先从 Header 中获取 API Key
+	// 实际应用中，可能检查Authorization头或其他API Key
 	apiKey := r.Header.Get("x-goog-api-key")
-
-	// 2. 如果 Header 中没有，则尝试从 URL 查询参数中获取
 	if apiKey == "" {
 		// r.URL.Query() 会解析URL中的查询参数，返回一个 map[string][]string
 		// .Get() 方法可以方便地获取指定参数的第一个值，如果参数不存在则返回空字符串
 		apiKey = r.URL.Query().Get("key")
 	}
 
-	if apiKey == "secret-key-for-user-1" {
+	// 从环境变量中获取预期的API密钥
+	expectedAPIKey := os.Getenv("AUTH_API_KEY")
+	if expectedAPIKey == "" {
+		log.Println("CRITICAL: AUTH_API_KEY environment variable not set.")
+		// 在生产环境中，您可能希望完全阻止请求
+		return "", errors.New("server configuration error")
+	}
+
+	if apiKey == expectedAPIKey {
+		// 单租户
 		return "user-1", nil
 	}
-	return "", errors.New("invalid API key")
 
-	//return "user-1", nil
+	return "", errors.New("invalid API key")
 }
 
 // --- 主函数 ---
