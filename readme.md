@@ -1,17 +1,20 @@
 # Docker版 aistudio-build-proxy
 集成 无头浏览器 + Websocket代理
 
-问题: 当前cookie导出方式导出的cookie时效较短.
+问题: 当前cookie导出方式导出的cookie可能时效较短.
 
 ## 使用方法:
 1. 导出Cookie到项目`camoufox-py/cookies/`文件夹下
 
-    (1) 安装该插件后[Cookie-Editor浏览器插件地址](https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm)
+    (1) 安装导出Cookie的插件, 这里推荐 [Cookie-Editor浏览器插件](https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm)
     , 使用该插件导出自己的Cookie
 
+    (2) 访问Google账号页面, 在该页面使用插件导出Cookie [https://myaccount.google.com/](https://myaccount.google.com/)
+
+    导出Cookie示例图:
     ![cookie-editor](/img/Cookie_Editor.png)
     
-    (2) 粘贴到项目 `camoufox-py/cookies/[自己命名].json` 中
+    (3) 粘贴到项目 `camoufox-py/cookies/[自己命名].json` 中
 
 2. 修改浏览器配置`camoufox-py/config.yaml`
 
