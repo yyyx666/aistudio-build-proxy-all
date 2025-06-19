@@ -75,15 +75,15 @@ def handle_untrusted_dialog(page: Page, logger=None):
     # 使用 is_visible() 来判断按钮是否可见。
     # 这个方法会进行短暂的等待，如果按钮在超时时间内没有出现，它会返回 False，而不会报错。
     # 这正是我们需要的“如果出现就点击，不出现就跳过”的逻辑。
-    # 为了应对弹窗加载慢的情况，可以给 is_visible 增加一个超时时间，例如 5 秒。
+    # 为了应对弹窗加载慢的情况，可以给 is_visible 增加一个超时时间，例如 10 秒。
     try:
-        if ok_button_locator.is_visible(timeout=5000): # 等待最多5秒
+        if ok_button_locator.is_visible(timeout=10000): # 等待最多10秒
             logger.info(f"检测到弹窗，正在点击 'OK' 按钮...")
             
             ok_button_locator.click(force=True)
             logger.info(f"'OK' 按钮已点击。")
             # 等待一下，确保弹窗完全关闭
-            expect(ok_button_locator).to_be_hidden(timeout=2000)
+            expect(ok_button_locator).to_be_hidden(timeout=1000)
             logger.info(f"弹窗已确认关闭。")
         else:
             logger.info(f"在5秒内未检测到弹窗，继续执行...")
@@ -217,7 +217,7 @@ def run_browser_instance(config):
             logger.info(f"页面加载完成。实例将保持运行状态。") # 使用 logger.info 代替 print
             page.click('body')
 
-            # 检查并处理 "Last modified by..." 的弹窗
+            # 等待10s后检查并处理 "Last modified by..." 的弹窗
             handle_untrusted_dialog(page,logger=logger)
 
             # 等待15s页面加载和渲染后截图
@@ -250,6 +250,8 @@ def main():
     
     # 为主进程设置日志
     logger = setup_logging(os.path.join(log_dir, 'app.log'))
+
+    logger.info("------------Camoufox 实例管理器开始启动------------") # 使用 logger.info 代替 print
 
     parser = argparse.ArgumentParser(description="通过 YAML 配置文件并发运行多个 Camoufox 实例。")
     parser.add_argument("config_file", help="YAML 配置文件的路径。")
