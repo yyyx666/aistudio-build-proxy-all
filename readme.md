@@ -37,6 +37,10 @@
     ```
 
 5. 等待一段时间后, 通过 http://127.0.0.1:5345 和 自己设置的`AUTH_API_KEY`使用.
+    
+    注1: 由于只是反代Gemini, 因此[接口文档](https://ai.google.dev/api)和Gemini API: `https://generativelanguage.googleapis.com`端点 完全相同, 使用只需将该url替换为`http://127.0.0.1:5345`即可, 支持原生Google Search、代码执行等工具。
+
+    注2: Cherry Studio等工具使用时, 务必记得选择提供商为 `Gemini`。
 
 ## 日志查看
 1. docker日志
@@ -49,3 +53,13 @@ docker logs [容器名]
 
     且每次运行, logs下会有一张截图
 
+## 容器资源占用:
+![Containers Stats](/img/Containers_Stats.png)
+本图为仅使用一个cookie的占用
+
+## 运行效果示例:
+快速模型首字吐出很快,表明该代理网络较好,本程序到google链路通畅
+
+![running example](/img/running_example.gif)
+
+如果使用推理模型慢,那就是 aistudio 的问题, 和本项目没关系
