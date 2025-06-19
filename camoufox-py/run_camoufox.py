@@ -5,41 +5,91 @@ import os
 import multiprocessing
 import yaml  # 导入 YAML 库
 import logging # 导入 logging 库
-
+from playwright.sync_api import Page, expect 
 from camoufox.sync_api import Camoufox
 
 # --- 日志配置函数 ---
-def setup_logging(log_file, level=logging.INFO):
+def setup_logging(log_file, prefix=None, level=logging.INFO):
     """
     配置日志记录器，使其输出到文件和控制台。
-    每个进程（包括主进程和子进程）都会调用此函数。
+    支持一个可选的前缀，用于标识日志来源。
+
+    每次调用都会重新配置处理器，以适应多进程环境。
+
+    :param log_file: 日志文件的路径。
+    :param prefix: (可选) 要添加到每条日志消息开头的字符串前缀。
+    :param level: 日志级别。
     """
-    # 获取或创建日志记录器
-    logger = logging.getLogger(__name__)
+    # 获取记录器实例。使用一个固定的名字，确保所有进程操作的是同一个日志记录器配置入口。
+    # 使用 __name__ 也可以，但用固定名字如 'my_app_logger' 更明确。
+    logger = logging.getLogger('my_app_logger') 
     logger.setLevel(level)
 
-    # 避免重复添加处理器，特别是在多进程中 fork 模式下可能继承父进程的处理器
-    # 对于Windows/macOS的spawn模式，这不是必需的，但有益于兼容性
-    if not logger.handlers:
-        # 创建文件处理器
-        fh = logging.FileHandler(log_file)
-        fh.setLevel(level)
+    # <--- 关键修改：从 "if not logger.handlers:" 改为无条件地清空和重建 --->
+    # 移除所有已经存在的处理器，确保我们从一个干净的状态开始配置。
+    # 这解决了子进程继承父进程处理器的问题。
+    if logger.hasHandlers():
+        logger.handlers.clear()
 
-        # 创建控制台处理器
-        ch = logging.StreamHandler()
-        ch.setLevel(level)
+    # 定义基础日志格式
+    base_format = '%(asctime)s - %(process)d - %(levelname)s - %(message)s'
 
-        # 定义日志格式
-        # %(process)d 会自动获取当前进程的PID
-        formatter = logging.Formatter('%(asctime)s - %(process)d - %(levelname)s - %(message)s')
-        fh.setFormatter(formatter)
-        ch.setFormatter(formatter)
+    # 如果提供了前缀，将其添加到格式中
+    if prefix:
+        log_format = f'%(asctime)s - %(process)d - %(levelname)s - {prefix} - %(message)s'
+    else:
+        log_format = base_format
 
-        # 将处理器添加到日志记录器
-        logger.addHandler(fh)
-        logger.addHandler(ch)
+    # 创建文件处理器
+    # 注意：FileHandler 本身是进程安全的
+    fh = logging.FileHandler(log_file)
+    fh.setLevel(level)
+
+    # 创建控制台处理器
+    ch = logging.StreamHandler()
+    ch.setLevel(level)
+
+    # 定义日志格式器
+    formatter = logging.Formatter(log_format)
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+
+    # 将新的处理器添加到日志记录器
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+    
+    # 防止日志消息向上传播到根记录器
+    logger.propagate = False
     
     return logger
+
+def handle_untrusted_dialog(page: Page, logger=None):
+    """
+    检查并处理 "Last modified by..." 的弹窗。
+    如果弹窗出现，则点击 "OK" 按钮。
+    """
+    # 定位 "OK" 按钮。get_by_role 是最稳健的方式。
+    # 它会寻找一个 role="button" 并且 accessible name（可见文本）为 "OK" 的元素。
+    ok_button_locator = page.get_by_role("button", name="OK")
+
+    # 使用 is_visible() 来判断按钮是否可见。
+    # 这个方法会进行短暂的等待，如果按钮在超时时间内没有出现，它会返回 False，而不会报错。
+    # 这正是我们需要的“如果出现就点击，不出现就跳过”的逻辑。
+    # 为了应对弹窗加载慢的情况，可以给 is_visible 增加一个超时时间，例如 5 秒。
+    try:
+        if ok_button_locator.is_visible(timeout=5000): # 等待最多5秒
+            logger.info(f"检测到弹窗，正在点击 'OK' 按钮...")
+            
+            ok_button_locator.click(force=True)
+            logger.info(f"'OK' 按钮已点击。")
+            # 等待一下，确保弹窗完全关闭
+            expect(ok_button_locator).to_be_hidden(timeout=2000)
+            logger.info(f"弹窗已确认关闭。")
+        else:
+            logger.info(f"在5秒内未检测到弹窗，继续执行...")
+    except Exception as e:
+        # 即使 is_visible 超时，通常不会抛出异常，但为了代码健壮性可以加上
+        logger.info(f"检查弹窗时发生意外：{e}，将继续执行...")
 
 def convert_cookie_editor_to_playwright(cookies_from_editor, logger=None):
     """
@@ -102,10 +152,13 @@ def run_browser_instance(config):
     根据最终合并的配置，启动并管理一个单独的 Camoufox 浏览器实例。
     """
     # 为当前子进程设置日志
-    logger = setup_logging(os.path.join('logs', 'app.log'))
 
     # 在cookies/文件夹下查找
-    cookie_file = os.path.join('cookies', config.get('cookie_file'))
+    cookie_file_config = config.get('cookie_file')
+    cookie_file = os.path.join('cookies', cookie_file_config)
+
+    logger = setup_logging(os.path.join('logs', 'app.log'), prefix=f"{cookie_file_config}")
+
     logger.info(f"尝试加载 Cookie 文件: {cookie_file}") # 使用 logger.info 代替 print
 
     url = config.get('url')
@@ -143,7 +196,8 @@ def run_browser_instance(config):
         "server": proxy,
         "bypass": "localhost, 127.0.0.1"
     }
-
+    # 禁止加载图片以提高速度
+    launch_options["block_images"] = True
     # 确保截图目录存在
     screenshot_dir = 'logs' # 截图保存到 'logs' 目录下
     os.makedirs(screenshot_dir, exist_ok=True) # exist_ok=True 避免目录已存在时报错
@@ -163,6 +217,9 @@ def run_browser_instance(config):
             logger.info(f"页面加载完成。实例将保持运行状态。") # 使用 logger.info 代替 print
             page.click('body')
 
+            # 检查并处理 "Last modified by..." 的弹窗
+            handle_untrusted_dialog(page,logger=logger)
+
             # 等待15s页面加载和渲染后截图
             time.sleep(15)
             screenshot_filename = os.path.join(screenshot_dir, f"screenshot_{cookie_file}_{int(time.time())}.png")
@@ -176,7 +233,8 @@ def run_browser_instance(config):
             # context.close() # 关闭上下文时会自动保存HAR文件
             # browser.close()
             while True:
-                time.sleep(1)
+                page.click('body')
+                time.sleep(10)
     except KeyboardInterrupt:
         logger.info(f"正在关闭...") # 使用 logger.info 代替 print
     except Exception as e:
