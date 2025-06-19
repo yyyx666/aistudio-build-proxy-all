@@ -6,13 +6,13 @@
 ## 使用方法:
 1. 导出Cookie到项目`camoufox-py/cookies/`文件夹下
 
-    (1) 安装导出Cookie的插件, 这里推荐 [Cookie-Editor浏览器插件](https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm)
-    , 使用该插件导出自己的Cookie
+    (1) 安装导出Cookie的插件, 这里推荐 [Global Cookie Manager浏览器插件](https://chromewebstore.google.com/detail/global-cookie-manager/bgffajlinmbdcileomeilpihjdgjiphb)
 
-    (2) 访问Google账号页面, 在该页面使用插件导出Cookie [https://myaccount.google.com/](https://myaccount.google.com/)
+    (2) 使用插件导出浏览器内所有涉及`google`的Cookie
 
     导出Cookie示例图:
-    ![cookie-editor](/img/Cookie_Editor.png)
+    ![Global Cookie Manager](/img/Global_Cookie_Manager.png)
+    ![Global Cookie Manager2](/img/Global_Cookie_Manager2.png)
     
     (3) 粘贴到项目 `camoufox-py/cookies/[自己命名].json` 中
 
