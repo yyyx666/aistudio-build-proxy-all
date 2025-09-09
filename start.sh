@@ -1,0 +1,12 @@
+#!/bin/bash
+if [ ! -z "$CONFIG" ]; then
+	echo $CONFIG > /app/config.yaml
+	echo "载入config.yaml"
+fi
+
+if [ ! -z "$COOKIE" ]; then
+	echo $COOKIE > /app/cookies/user1_cookie.json
+	echo "载入user1_cookie"
+fi
+
+/usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

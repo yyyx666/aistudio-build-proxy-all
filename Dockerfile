@@ -58,4 +58,7 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # 容器启动时，运行 Supervisor
 # 它会根据 supervisord.conf 的配置来启动你的 Python 和 Go 应用
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
+run copy start.sh /start.sh
+run chmod 777 /start.sh
+CMD /start.sh
