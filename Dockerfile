@@ -61,4 +61,5 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 copy start.sh /start.sh
 run chmod 777 /start.sh
+run mkdir -p /app/cookies
 CMD /start.sh
