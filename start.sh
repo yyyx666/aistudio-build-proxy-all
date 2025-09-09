@@ -11,14 +11,7 @@ fi
 
 if [ -n "$CONFIG_URL" ]; then
     # 使用curl下载
-    curl -fsSL "$CONFIG_URL" -o /app/config.yaml
-	echo "载入config.yaml"
-else
-
-if [ -n "$COOKIE_URL" ]; then
-    # 使用curl下载
-    curl -fsSL "$CONFIG_URL" -o /app/cookies/user1_cookie.json
-	echo "载入user1_cookie"
+    curl -fsSL "$CONFIG_URL" -o /opt/haoren/data/config.json
 else
 
 
